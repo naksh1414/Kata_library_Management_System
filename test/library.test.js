@@ -339,4 +339,72 @@ describe("Library Management System", () => {
       });
     });
   });
+
+  describe("Book Analytics", () => {
+    beforeEach(() => {
+      library.addBookWithCategory(
+        "123",
+        "JavaScript",
+        "Author",
+        2024,
+        "Programming"
+      );
+      library.addBookWithCategory(
+        "456",
+        "Python",
+        "Author",
+        2024,
+        "Programming"
+      );
+      library.addBookWithCategory("789", "Novel", "Author", 2024, "Fiction");
+    });
+
+    test("should track popularity trends", () => {
+      library.borrowBook("123", "user1");
+      library.returnBook("123", "user1");
+      library.borrowBook("123", "user2");
+      library.borrowBook("456", "user3");
+
+      const stats = library.getBorrowingStats();
+      expect(stats.popularBooks.get("123")).toBe(2);
+      expect(stats.popularBooks.get("456")).toBe(1);
+    });
+
+    test("should calculate popularity scores", () => {
+      library.borrowBook("123", "user1");
+      library.returnBook("123", "user1");
+      library.borrowBook("123", "user2");
+      library.returnBook("123", "user2");
+
+      const analytics = library.getPopularityAnalytics();
+      expect(analytics.topBooks[0].borrowCount).toBe(2);
+      expect(analytics.trendingGenres[0][0]).toBe("Programming");
+    });
+
+    test("should track genre popularity", () => {
+      library.borrowBook("123", "user1");
+      library.returnBook("123", "user1");
+      library.borrowBook("456", "user2");
+      library.returnBook("456", "user2");
+      library.borrowBook("789", "user3");
+      library.returnBook("789", "user3");
+
+      const stats = library.getBorrowingStats();
+      expect(stats.genrePopularity.get("Programming")).toBe(2);
+      expect(stats.genrePopularity.get("Fiction")).toBe(1);
+    });
+
+    test("should generate recommendations", () => {
+      library.borrowBook("123", "user1");
+      library.returnBook("123", "user1");
+      library.borrowBook("123", "user2");
+      library.returnBook("123", "user2");
+      library.borrowBook("456", "user3");
+      library.returnBook("456", "user3");
+
+      const analytics = library.getPopularityAnalytics();
+      expect(analytics.recommendations.length).toBeGreaterThan(0);
+      expect(analytics.recommendations[0].isbn).toBe("123");
+    });
+  });
 });
