@@ -9,27 +9,85 @@ export class Library {
       operations: 0,
       lastOptimization: Date.now(),
     };
+    this.metrics = {
+      operations: 0,
+      startTime: performance.now(),
+      lastOptimization: performance.now(),
+      operationTimes: new Map(),
+    };
+  }
+
+  trackPerformance(operation, fn) {
+    const startTime = performance.now();
+    const startMemory = process.memoryUsage().heapUsed;
+
+    try {
+      const result = fn();
+
+      const endTime = performance.now();
+      const endMemory = process.memoryUsage().heapUsed;
+
+      this.metrics.operations++;
+
+      if (!this.metrics.operationTimes.has(operation)) {
+        this.metrics.operationTimes.set(operation, []);
+      }
+
+      this.metrics.operationTimes.get(operation).push({
+        duration: endTime - startTime,
+        memoryDelta: (endMemory - startMemory) / 1024 / 1024,
+      });
+
+      if (this.metrics.operationTimes.get(operation).length > 1000) {
+        this.metrics.operationTimes.get(operation).shift();
+      }
+
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  getPerformanceMetrics() {
+    const metrics = {
+      totalOperations: this.metrics.operations,
+      uptime: performance.now() - this.metrics.startTime,
+      averageOperationTimes: {},
+      memoryTrends: {},
+    };
+
+    // Calculate averages for each operation
+    this.metrics.operationTimes.forEach((times, operation) => {
+      metrics.averageOperationTimes[operation] = {
+        avgDuration:
+          times.reduce((sum, t) => sum + t.duration, 0) / times.length,
+        avgMemoryDelta:
+          times.reduce((sum, t) => sum + t.memoryDelta, 0) / times.length,
+      };
+    });
+
+    return metrics;
   }
 
   addBook(isbn, title, author, publicationYear) {
-    this.performanceMetrics.operations++;
+    return this.trackPerformance("addBook", () => {
+      if (!isbn || !title || !author || !publicationYear) {
+        throw new Error("All book details are required");
+      }
 
-    if (!isbn || !title || !author || !publicationYear) {
-      throw new Error("All book details are required");
-    }
+      const currentYear = new Date().getFullYear();
+      if (publicationYear < 1900 || publicationYear > currentYear) {
+        throw new Error("Invalid publication year");
+      }
 
-    const currentYear = new Date().getFullYear();
-    if (publicationYear < 1900 || publicationYear > currentYear) {
-      throw new Error("Invalid publication year");
-    }
+      if (this.books.has(isbn)) {
+        throw new Error("Book with this ISBN already exists");
+      }
 
-    if (this.books.has(isbn)) {
-      throw new Error("Book with this ISBN already exists");
-    }
-
-    const book = new Book(isbn, title, author, publicationYear);
-    this.books.set(isbn, book);
-    return book;
+      const book = new Book(isbn, title, author, publicationYear);
+      this.books.set(isbn, book);
+      return book;
+    });
   }
 
   addBookWithCategory(isbn, title, author, year, category) {
@@ -116,17 +174,19 @@ export class Library {
   }
 
   searchBooks(query) {
-    this.performanceMetrics.operations++;
-    if (!query) return [];
+    return this.trackPerformance("searchBooks", () => {
+      this.performanceMetrics.operations++;
+      if (!query) return [];
 
-    const searchTerm = query.toLowerCase();
-    return Array.from(this.books.values()).filter(
-      (book) =>
-        book.title.toLowerCase().includes(searchTerm) ||
-        book.author.toLowerCase().includes(searchTerm) ||
-        book.isbn.toLowerCase().includes(searchTerm) ||
-        book.publicationYear.toString().includes(searchTerm)
-    );
+      const searchTerm = query.toLowerCase();
+      return Array.from(this.books.values()).filter(
+        (book) =>
+          book.title.toLowerCase().includes(searchTerm) ||
+          book.author.toLowerCase().includes(searchTerm) ||
+          book.isbn.toLowerCase().includes(searchTerm) ||
+          book.publicationYear.toString().includes(searchTerm)
+      );
+    });
   }
 
   getBooksByCategory(category) {
@@ -292,57 +352,71 @@ export class Library {
   }
 
   getPopularityAnalytics(timeframe = "all") {
-    const stats = this.getBorrowingStats();
-    const currentDate = new Date();
+    return this.trackPerformance("analytics", () => {
+      const stats = this.getBorrowingStats();
+      const currentDate = new Date();
 
-    const analytics = {
-      topBooks: stats.topBooks,
-      trendingGenres: Array.from(stats.genrePopularity.entries()).sort(
-        (a, b) => b[1] - a[1]
-      ),
-      trends: {
-        daily: Array.from(stats.popularityTrends.daily.entries()),
-        weekly: Array.from(stats.popularityTrends.weekly.entries()),
-        monthly: Array.from(stats.popularityTrends.monthly.entries()),
-      },
-      recommendations: [],
-    };
+      const analytics = {
+        topBooks: stats.topBooks,
+        trendingGenres: Array.from(stats.genrePopularity.entries()).sort(
+          (a, b) => b[1] - a[1]
+        ),
+        trends: {
+          daily: Array.from(stats.popularityTrends.daily.entries()),
+          weekly: Array.from(stats.popularityTrends.weekly.entries()),
+          monthly: Array.from(stats.popularityTrends.monthly.entries()),
+        },
+        recommendations: [],
+      };
 
-    // Generate recommendations based on popularity scores
-    const scores = Array.from(stats.popularityScores.entries())
-      .sort((a, b) => b[1].totalScore - a[1].totalScore)
-      .slice(0, 5)
-      .map(([isbn]) => this.books.get(isbn));
+      // Generate recommendations based on popularity scores
+      const scores = Array.from(stats.popularityScores.entries())
+        .sort((a, b) => b[1].totalScore - a[1].totalScore)
+        .slice(0, 5)
+        .map(([isbn]) => this.books.get(isbn));
 
-    analytics.recommendations = scores;
+      analytics.recommendations = scores;
 
-    return analytics;
+      return analytics;
+    });
   }
 
   getPerformanceMetrics() {
+    const now = performance.now();
+    const uptimeSeconds = (now - this.metrics.startTime) / 1000;
+
     return {
-      ...this.performanceMetrics,
-      uptime: Date.now() - this.performanceMetrics.startTime,
-      operationsPerSecond:
-        this.performanceMetrics.operations /
-        ((Date.now() - this.performanceMetrics.startTime) / 1000),
+      totalOperations: this.metrics.operations,
+      uptime: uptimeSeconds,
+      operationsPerSecond: Math.round(this.metrics.operations / uptimeSeconds),
+      lastOptimization: this.metrics.lastOptimization,
+      averageOperationTimes: Object.fromEntries(
+        Array.from(this.metrics.operationTimes.entries()).map(([op, times]) => [
+          op,
+          {
+            avgDuration:
+              times.reduce((sum, t) => sum + t.duration, 0) / times.length,
+            avgMemoryDelta:
+              times.reduce((sum, t) => sum + t.memoryDelta, 0) / times.length,
+          },
+        ])
+      ),
     };
   }
 
   optimizePerformance() {
     const now = Date.now();
-    if (now - this.performanceMetrics.lastOptimization > 3600000) {
-      // 1 hour
-      // Clear old history entries
+    this.metrics.lastOptimization = now;
+
+    if (now - this.metrics.lastOptimization > 3600000) {
       this.borrowHistory.forEach((history, userId) => {
         const recentHistory = history.filter(
-          (record) => now - record.timestamp < 31536000000 // 1 year
+          (record) => now - record.timestamp < 31536000000
         );
         if (recentHistory.length !== history.length) {
           this.borrowHistory.set(userId, recentHistory);
         }
       });
-      this.performanceMetrics.lastOptimization = now;
     }
   }
 }

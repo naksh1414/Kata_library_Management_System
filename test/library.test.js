@@ -242,12 +242,16 @@ describe("Library Management System", () => {
   describe("Enhanced Features", () => {
     describe("Performance Tests", () => {
       test("should handle bulk operations efficiently", async () => {
-        const startTime = performance.now();
-        for (let i = 0; i < 1000; i++) {
-          library.addBook(`ISBN${i}`, `Book${i}`, `Author${i}`, 2024);
-        }
-        const endTime = performance.now();
-        expect(endTime - startTime).toBeLessThan(5000);
+        const operations = Array.from({ length: 1000 }, (_, i) => ({
+          isbn: `ISBN${i}`,
+          title: `Book ${i}`,
+          author: `Author ${i}`,
+          year: 2024,
+        }));
+
+        operations.forEach((op) =>
+          library.addBook(op.isbn, op.title, op.author, op.year)
+        );
 
         const metrics = library.getPerformanceMetrics();
         expect(metrics.operationsPerSecond).toBeGreaterThan(100);
@@ -405,6 +409,101 @@ describe("Library Management System", () => {
       const analytics = library.getPopularityAnalytics();
       expect(analytics.recommendations.length).toBeGreaterThan(0);
       expect(analytics.recommendations[0].isbn).toBe("123");
+    });
+  });
+
+  describe("Performance Tests", () => {
+    test("should handle bulk operations within memory constraints", async () => {
+      const initialMemory = process.memoryUsage().heapUsed;
+      const startTime = performance.now();
+
+      // Add 10,000 books
+      for (let i = 0; i < 10000; i++) {
+        library.addBook(`ISBN${i}`, `Book Title ${i}`, `Author ${i}`, 2024);
+      }
+
+      const endTime = performance.now();
+      const finalMemory = process.memoryUsage().heapUsed;
+
+      // Performance assertions
+      expect(endTime - startTime).toBeLessThan(5000); // Should complete in 5 seconds
+      expect((finalMemory - initialMemory) / 1024 / 1024).toBeLessThan(100); // Less than 100MB increase
+    });
+
+    test("should perform search operations efficiently", () => {
+      // Populate library
+      for (let i = 0; i < 1000; i++) {
+        library.addBook(`ISBN${i}`, `Title${i}`, `Author${i}`, 2024);
+      }
+
+      const startTime = performance.now();
+      const results = library.searchBooks("Title500");
+      const endTime = performance.now();
+
+      expect(endTime - startTime).toBeLessThan(100); // Search should take less than 100ms
+      expect(results).toHaveLength(1);
+    });
+
+    test("should maintain performance with concurrent operations", async () => {
+      const operations = [];
+      const startTime = performance.now();
+
+      // Simulate concurrent operations
+      for (let i = 0; i < 100; i++) {
+        operations.push(
+          library.addBook(`ISBN${i}`, `Title${i}`, `Author${i}`, 2024),
+          library.searchBooks("Title"),
+          library.getAvailableBooks()
+        );
+      }
+
+      await Promise.all(operations);
+      const endTime = performance.now();
+
+      expect(endTime - startTime).toBeLessThan(1000); // Should handle 300 operations under 1 second
+    });
+
+    test("should optimize memory usage over time", () => {
+      const initialMemory = process.memoryUsage().heapUsed;
+
+      // Add books and create history
+      for (let i = 0; i < 1000; i++) {
+        const isbn = `ISBN${i}`;
+        library.addBook(isbn, `Title${i}`, `Author${i}`, 2024);
+        library.borrowBook(isbn, `user${i}`);
+        library.returnBook(isbn, `user${i}`);
+      }
+
+      // Force optimization
+      library.optimizePerformance();
+
+      const finalMemory = process.memoryUsage().heapUsed;
+      const memoryIncreaseMB = (finalMemory - initialMemory) / 1024 / 1024;
+
+      expect(memoryIncreaseMB).toBeLessThan(50); // Memory growth should be limited
+    });
+
+    test("should handle large analytics calculations efficiently", () => {
+      // Prepare test data
+      for (let i = 0; i < 500; i++) {
+        const isbn = `ISBN${i}`;
+        library.addBookWithCategory(
+          isbn,
+          `Title${i}`,
+          `Author${i}`,
+          2024,
+          `Category${i % 10}`
+        );
+        library.borrowBook(isbn, `user${i}`);
+        library.returnBook(isbn, `user${i}`);
+      }
+
+      const startTime = performance.now();
+      const analytics = library.getPopularityAnalytics();
+      const endTime = performance.now();
+
+      expect(endTime - startTime).toBeLessThan(500); // Analytics should complete in 500ms
+      expect(analytics.recommendations.length).toBeGreaterThan(0);
     });
   });
 });
