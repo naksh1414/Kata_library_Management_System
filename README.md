@@ -97,6 +97,48 @@ console.log(`Total Borrows: ${stats.totalBorrows}`);
   - Quick search capabilities
   - Memory-efficient storage
 
+## 🐳 Docker Setup
+
+   1. **Build and Run with Docker Compose** 
+
+```bash
+   docker-compose up --build
+```
+
+   2. **Docker Structure**
+```
+├── Dockerfile          # Node.js container setup
+├── docker-compose.yml  # Multi-container configuration
+```
+
+## 🔌 API Endpoints
+
+### Books
+- `POST /books` - Add new book
+  ```bash
+  curl -X POST http://localhost:3030/books -H "Content-Type: application/json" \
+  -d '{"isbn":"123","title":"Clean Code","author":"Martin","publicationYear":2024}'
+  ```
+
+- `POST /books/category` - Add book with category
+  ```bash
+  curl -X POST http://localhost:3030/books/category -H "Content-Type: application/json" \
+  -d '{"isbn":"456","title":"Design Patterns","author":"GoF","year":2024,"category":"Engineering"}'
+  ```
+
+### Borrowing
+- `POST /books/:isbn/borrow` - Borrow book
+  ```bash
+  curl -X POST http://localhost:3030/books/123/borrow -H "Content-Type: application/json" \
+  -d '{"userId":"user1"}'
+  ```
+
+- `POST /books/:isbn/return` - Return book
+  ```bash
+  curl -X POST http://localhost:3030/books/123/return -H "Content-Type: application/json" \
+  -d '{"userId":"user1"}'
+  ```
+
 ## 🤝 Contributing
 
 1. Fork repository
