@@ -102,7 +102,7 @@ console.log(`Total Borrows: ${stats.totalBorrows}`);
    1. **Build and Run with Docker Compose** 
 
 ```bash
-   docker-compose up --build
+   docker-compose up -d --build
 ```
 
    2. **Docker Structure**
